@@ -1,42 +1,14 @@
-/*
+#pragma once
 
+// Bitrate CAN Booster Discovery (EXSA utilise 500 kbps)
+static const uint32_t CAN_BOOSTER_BITRATE = 500000;
 
-*/
+// Seuils DCC (µs)
+static const uint32_t DCC_MIN_1 = 40;   // bit 1 ≈ 58 µs
+static const uint32_t DCC_MAX_1 = 80;
 
-#ifndef __CONFIG__
-#define __CONFIG__
+static const uint32_t DCC_MIN_0 = 90;   // bit 0 ≈ 116 µs
+static const uint32_t DCC_MAX_0 = 150;
 
-#include <Arduino.h>
-#include <ACAN_ESP32.h>
-
-#define DEBUG
-
-#define NO_ID      255       
-#define NO_PIN     255
-
-#define NB_SAT     30
-#define NB_LOCOS   7
-
-/* ----- Debug   -------------------*/
-#define DEBUG
-#define debug Serial
-
-
-/* ----- Wifi --------------------*/
-
-#define CONFIG 1 // Selection du mode
-
-#if CONFIG == 0 // WiFi en mode point d’accès
-#define WIFI_AP_MODE
-#define WIFI_SSID "digital"
-#define WIFI_PSW "digital" // Password facultatif
-
-#elif CONFIG == 1
-#define WIFI_SSID "Starlink Olivier"
-#define WIFI_PSW "VF4Ba.C-9M9FWprX"
-
-
-
-#endif
-
-#endif
+// Taille de la file d’événements
+static const uint8_t DCC_EVENT_QUEUE_SIZE = 32;
