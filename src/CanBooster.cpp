@@ -19,7 +19,6 @@ void CanBooster_sendDcc(const DccEvent &ev) {
     CANMessage msg;
 
     switch (ev.type) {
-
         case DCC_BIT_0:
             msg.id = 0x100;
             msg.len = 2;
@@ -37,8 +36,8 @@ void CanBooster_sendDcc(const DccEvent &ev) {
         case DCC_CUTOUT_START:
             msg.id = 0x101;
             msg.len = 2;
-            msg.data[0] = 1; // cutout local
-            msg.data[1] = 1; // cutout global (optionnel)
+            msg.data[0] = 1;
+            msg.data[1] = 1;
             break;
 
         case DCC_CUTOUT_END:
