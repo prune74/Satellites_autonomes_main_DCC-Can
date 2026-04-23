@@ -1,6 +1,6 @@
 #include "DccDecoder.h"
-#include "pins.h"
-#include "config.h"
+#include "Pins.h"
+#include "Config.h"
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -33,8 +33,10 @@ static void IRAM_ATTR dccISR() {
     ev.phase = currentPhase;
     ev.bit   = 0;
 
+    // -----------------------------------------------------------------------
     // Début de cutout : gros trou
-    if (dt > DCC_CUTOUT_THRESHOLD) {
+    // -----------------------------------------------------------------------
+    if (dt > DCCB_TIMING_CUTOUT_START_US) {
         if (!inCutout) {
             inCutout = true;
 #if DCCB_MEASURE_STATS
@@ -46,17 +48,20 @@ static void IRAM_ATTR dccISR() {
         return;
     }
 
-    // Si on était en cutout et qu'on voit un front "normal" → fin de cutout
+    // -----------------------------------------------------------------------
+    // Fin de cutout : retour à un front normal
+    // -----------------------------------------------------------------------
     if (inCutout) {
         inCutout = false;
         ev.type  = DCC_EVT_CUTOUT_END;
-        ev.bit   = 0;
         sendEventFromISR(ev);
         // on continue pour classifier ce front comme bit
     }
 
+    // -----------------------------------------------------------------------
     // Bit 1
-    if (dt >= DCC_MIN_1 && dt <= DCC_MAX_1) {
+    // -----------------------------------------------------------------------
+    if (dt >= DCCB_TIMING_BIT1_MIN_US && dt <= DCCB_TIMING_BIT1_MAX_US) {
         currentPhase ^= 1;
         ev.type  = DCC_EVT_BIT;
         ev.bit   = 1;
@@ -68,8 +73,10 @@ static void IRAM_ATTR dccISR() {
         return;
     }
 
+    // -----------------------------------------------------------------------
     // Bit 0
-    if (dt >= DCC_MIN_0 && dt <= DCC_MAX_0) {
+    // -----------------------------------------------------------------------
+    if (dt >= DCCB_TIMING_BIT0_MIN_US && dt <= DCCB_TIMING_BIT0_MAX_US) {
         currentPhase ^= 1;
         ev.type  = DCC_EVT_BIT;
         ev.bit   = 0;
@@ -81,7 +88,9 @@ static void IRAM_ATTR dccISR() {
         return;
     }
 
+    // -----------------------------------------------------------------------
     // Timing invalide
+    // -----------------------------------------------------------------------
 #if DCCB_MEASURE_STATS
     s_badTiming++;
 #endif
