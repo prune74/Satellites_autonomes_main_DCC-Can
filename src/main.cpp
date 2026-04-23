@@ -7,6 +7,10 @@
 
 TaskHandle_t taskDccHandle = nullptr;
 TaskHandle_t taskCanHandle = nullptr;
+TaskHandle_t taskCanRxHandle = nullptr;
+
+volatile bool canMonitorEnabled = false;
+volatile int32_t canMonitorFilter = -1; // -1 = aucun filtre
 
 // ---------------------------------------------------------------------------
 // Tâche DCC (core 0)
@@ -28,7 +32,7 @@ void taskDcc(void *pvParameters)
 void taskCan(void *pvParameters)
 {
     DccEvent ev;
-    uint32_t lastDccMs   = millis();
+    uint32_t lastDccMs = millis();
     uint32_t lastStatsMs = millis();
 
     bool failsafeActive = false;
@@ -57,18 +61,18 @@ void taskCan(void *pvParameters)
             // Mode oscilloscope : on logge tout
             switch (ev.type)
             {
-                case DCC_EVT_BIT:
-                    Serial.printf("SCOPE BIT b=%u ph=%u dt=%u\n",
-                                  ev.bit, ev.phase, ev.dt_us);
-                    break;
+            case DCC_EVT_BIT:
+                Serial.printf("SCOPE BIT b=%u ph=%u dt=%u\n",
+                              ev.bit, ev.phase, ev.dt_us);
+                break;
 
-                case DCC_EVT_CUTOUT_START:
-                    Serial.printf("SCOPE CUTOUT_START dt=%u\n", ev.dt_us);
-                    break;
+            case DCC_EVT_CUTOUT_START:
+                Serial.printf("SCOPE CUTOUT_START dt=%u\n", ev.dt_us);
+                break;
 
-                case DCC_EVT_CUTOUT_END:
-                    Serial.printf("SCOPE CUTOUT_END dt=%u\n", ev.dt_us);
-                    break;
+            case DCC_EVT_CUTOUT_END:
+                Serial.printf("SCOPE CUTOUT_END dt=%u\n", ev.dt_us);
+                break;
             }
 #endif
 
@@ -77,27 +81,27 @@ void taskCan(void *pvParameters)
             // ---------------------------------------------------------
             switch (ev.type)
             {
-                case DCC_EVT_BIT:
-                    CanBooster_sendDccBit(ev.bit, ev.phase);
+            case DCC_EVT_BIT:
+                CanBooster_sendDccBit(ev.bit, ev.phase);
 #if DCCB_DEBUG_SERIAL >= 2 && !DCCB_SCOPE_MODE
-                    Serial.printf("BIT %u phase=%u dt=%u\n",
-                                  ev.bit, ev.phase, ev.dt_us);
+                Serial.printf("BIT %u phase=%u dt=%u\n",
+                              ev.bit, ev.phase, ev.dt_us);
 #endif
-                    break;
+                break;
 
-                case DCC_EVT_CUTOUT_START:
-                    CanBooster_sendCutout(true, true);
+            case DCC_EVT_CUTOUT_START:
+                CanBooster_sendCutout(true, true);
 #if DCCB_DEBUG_SERIAL >= 1 && !DCCB_SCOPE_MODE
-                    Serial.println("CUTOUT START");
+                Serial.println("CUTOUT START");
 #endif
-                    break;
+                break;
 
-                case DCC_EVT_CUTOUT_END:
-                    CanBooster_sendCutout(false, false);
+            case DCC_EVT_CUTOUT_END:
+                CanBooster_sendCutout(false, false);
 #if DCCB_DEBUG_SERIAL >= 1 && !DCCB_SCOPE_MODE
-                    Serial.println("CUTOUT END");
+                Serial.println("CUTOUT END");
 #endif
-                    break;
+                break;
             }
 
             digitalWrite(PIN_LED, !digitalRead(PIN_LED));
@@ -174,6 +178,34 @@ void taskCan(void *pvParameters)
 }
 
 // ---------------------------------------------------------------------------
+// Tâche CAN RX : sniffer / monitor
+// ---------------------------------------------------------------------------
+void taskCanRx(void *pvParameters)
+{
+    CANMessage msg;
+
+    for (;;)
+    {
+        if (ACAN_ESP32::can.receive(msg))
+        {
+            if (canMonitorEnabled)
+            {
+                // Filtrage
+                if (canMonitorFilter == -1 || msg.id == (uint32_t)canMonitorFilter)
+                {
+                    Serial.printf("[CAN RX] ID=0x%03X LEN=%u DATA=", msg.id, msg.len);
+                    for (uint8_t i = 0; i < msg.len; i++)
+                        Serial.printf("%02X ", msg.data[i]);
+                    Serial.println();
+                }
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+}
+
+// ---------------------------------------------------------------------------
 // SETUP
 // ---------------------------------------------------------------------------
 void setup()
@@ -197,6 +229,10 @@ void setup()
     // Tâche CAN sur core 1
     xTaskCreatePinnedToCore(
         taskCan, "CAN", 4096, nullptr, 3, &taskCanHandle, 1);
+
+    // Tâche CAN RX (sniffer)
+    xTaskCreatePinnedToCore(
+        taskCanRx, "CAN_RX", 4096, nullptr, 1, &taskCanRxHandle, 1);
 }
 
 // ---------------------------------------------------------------------------
