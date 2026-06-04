@@ -9,8 +9,6 @@ enum BoosterState : uint8_t {
     BOOSTER_OFF      = 3
 };
 
-void CanBooster_begin();
-
 bool CanBooster_sendDccBit(uint8_t bit, uint8_t phase);
 bool CanBooster_sendCutout(bool local, bool global);
 bool CanBooster_sendTelemetry(uint16_t mA, uint16_t mV, BoosterState st);
